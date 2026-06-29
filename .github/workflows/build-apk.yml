@@ -27,23 +27,52 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
-      - name: Find and unzip Rajahuli99 project
+      - name: Find correct Rajahuli99 project ZIP
         run: |
-          ZIP_FILE=$(find . -maxdepth 4 -type f \( -iname '*Rajahuli99*WHITE*SPLASH*.zip' -o -iname '*WHITE_SPLASH*.zip' -o -iname '*WHITE*.zip' \) | head -n 1)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Rajahuli99 white splash ZIP file not found."
+          echo "Searching correct Android project ZIP..."
+
+          PROJECT_ZIP=""
+
+          for ZIP in $(find . -maxdepth 4 -type f -iname "*.zip"); do
+            echo "Checking ZIP: $ZIP"
+
+            if echo "$ZIP" | grep -i "WORKFLOW"; then
+              echo "Skipping workflow zip: $ZIP"
+              continue
+            fi
+
+            rm -rf test_extract
+            mkdir -p test_extract
+            unzip -q "$ZIP" -d test_extract || true
+
+            FOUND_DIR=$(find test_extract -type f -name "settings.gradle" -printf '%h\n' | head -n 1)
+
+            if [ -n "$FOUND_DIR" ]; then
+              PROJECT_ZIP="$ZIP"
+              echo "Correct project ZIP found: $PROJECT_ZIP"
+              break
+            fi
+          done
+
+          if [ -z "$PROJECT_ZIP" ]; then
+            echo "ERROR: Correct Rajahuli99 Android project ZIP not found."
+            echo "Upload this ZIP in repo root: Rajahuli99_WHITE_SPLASH_ICON_GITHUB_UPLOAD.zip"
             exit 1
           fi
-          echo "Found ZIP: $ZIP_FILE"
+
           rm -rf extracted
           mkdir -p extracted
-          unzip -q "$ZIP_FILE" -d extracted
-          PROJECT_DIR=$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)
+          unzip -q "$PROJECT_ZIP" -d extracted
+
+          PROJECT_DIR=$(find extracted -type f -name "settings.gradle" -printf '%h\n' | head -n 1)
+
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: Wrong ZIP uploaded."
+            echo "ERROR: settings.gradle not found inside project ZIP."
             exit 1
           fi
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project directory: $PROJECT_DIR"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -58,7 +87,13 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p final-apk
-          APK_FILE=$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -name '*.apk' | head -n 1)
+          APK_FILE=$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -name "*.apk" | head -n 1)
+
+          if [ -z "$APK_FILE" ]; then
+            echo "ERROR: APK not found after build."
+            exit 1
+          fi
+
           cp "$APK_FILE" final-apk/Rajahuli99-White-Splash.apk
 
       - name: Upload APK
