@@ -1,41 +1,50 @@
 name: Build Rajahuli99 Android APK
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: ["main", "master"]
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
+    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
           channel: stable
+          cache: true
 
-      - name: Flutter pub get
+      - name: Check project files
+        run: ls -la rajahuli99_cricket_app
+
+      - name: Generate Android project files
+        working-directory: rajahuli99_cricket_app
+        run: flutter create --platforms=android .
+
+      - name: Install Flutter packages
+        working-directory: rajahuli99_cricket_app
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build release APK
+        working-directory: rajahuli99_cricket_app
         run: flutter build apk --release
 
-      - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-release.apk Rajahuli99-Cricket.apk
+      - name: Copy APK
+        run: cp rajahuli99_cricket_app/build/app/outputs/flutter-apk/app-release.apk Rajahuli99-Cricket.apk
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Rajahuli99-Cricket-APK
