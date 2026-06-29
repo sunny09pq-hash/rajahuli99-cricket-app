@@ -26,23 +26,33 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Check project files
-        run: ls -la rajahuli99_cricket_app
+      - name: Find Flutter project
+        run: |
+          echo "Repo files:"
+          ls -la
+          APP_DIR=$(dirname "$(find . -name pubspec.yaml -not -path "*/build/*" | head -n 1)")
+          if [ -z "$APP_DIR" ] || [ "$APP_DIR" = "." ]; then
+            APP_DIR="."
+          fi
+          if [ ! -f "$APP_DIR/pubspec.yaml" ]; then
+            echo "pubspec.yaml not found. Please upload extracted Flutter files, not ZIP only."
+            exit 1
+          fi
+          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
+          echo "Flutter project found at: $APP_DIR"
+          ls -la "$APP_DIR"
 
       - name: Generate Android project files
-        working-directory: rajahuli99_cricket_app
-        run: flutter create --platforms=android .
+        run: cd "$APP_DIR" && flutter create --platforms=android .
 
       - name: Install Flutter packages
-        working-directory: rajahuli99_cricket_app
-        run: flutter pub get
+        run: cd "$APP_DIR" && flutter pub get
 
       - name: Build release APK
-        working-directory: rajahuli99_cricket_app
-        run: flutter build apk --release
+        run: cd "$APP_DIR" && flutter build apk --release
 
       - name: Copy APK
-        run: cp rajahuli99_cricket_app/build/app/outputs/flutter-apk/app-release.apk Rajahuli99-Cricket.apk
+        run: cp "$APP_DIR/build/app/outputs/flutter-apk/app-release.apk" Rajahuli99-Cricket.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
