@@ -14,6 +14,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Extract uploaded app ZIP
+        run: |
+          echo "Files before extract:"
+          ls -la
+
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP found. Continuing..."
+          else
+            echo "Extracting $ZIP_FILE"
+            unzip -o "$ZIP_FILE" -d .
+          fi
+
+          echo "Files after extract:"
+          ls -la
+
+      - name: Find Flutter project
+        run: |
+          APP_DIR=$(find . -type f -name "pubspec.yaml" -not -path "*/build/*" -exec dirname {} \; | head -n 1)
+
+          if [ -z "$APP_DIR" ]; then
+            echo "pubspec.yaml not found even after ZIP extract."
+            echo "Repo files:"
+            find . -maxdepth 4 -type f
+            exit 1
+          fi
+
+          echo "Flutter project found at: $APP_DIR"
+          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
+          ls -la "$APP_DIR"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -26,23 +58,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Find Flutter project
-        run: |
-          echo "Repo files:"
-          ls -la
-          APP_DIR=$(dirname "$(find . -name pubspec.yaml -not -path "*/build/*" | head -n 1)")
-          if [ -z "$APP_DIR" ] || [ "$APP_DIR" = "." ]; then
-            APP_DIR="."
-          fi
-          if [ ! -f "$APP_DIR/pubspec.yaml" ]; then
-            echo "pubspec.yaml not found. Please upload extracted Flutter files, not ZIP only."
-            exit 1
-          fi
-          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
-          echo "Flutter project found at: $APP_DIR"
-          ls -la "$APP_DIR"
-
-      - name: Generate Android project files
+      - name: Generate Android files
         run: cd "$APP_DIR" && flutter create --platforms=android .
 
       - name: Install Flutter packages
@@ -54,7 +70,7 @@ jobs:
       - name: Copy APK
         run: cp "$APP_DIR/build/app/outputs/flutter-apk/app-release.apk" Rajahuli99-Cricket.apk
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Rajahuli99-Cricket-APK
