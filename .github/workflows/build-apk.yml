@@ -1,4 +1,4 @@
-name: Build Rajahuli99 WebView APK
+name: Build Rajahuli99 Smooth WebView APK
 
 on:
   workflow_dispatch:
@@ -27,11 +27,11 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
-      - name: Unzip Rajahuli99 project
+      - name: Find and unzip Rajahuli99 project
         run: |
-          ZIP_FILE=$(find . -maxdepth 3 -type f \( -iname '*rajahuli*.zip' -o -iname '*webview*.zip' -o -iname '*WEBVIEW*.zip' \) | head -n 1)
+          ZIP_FILE=$(find . -maxdepth 3 -type f \( -iname '*Rajahuli99*SMOOTH*.zip' -o -iname '*WEBVIEW*SMOOTH*.zip' -o -iname '*webview*smooth*.zip' \) | head -n 1)
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Rajahuli99 WebView ZIP file not found."
+            echo "ERROR: Rajahuli99 smooth WebView ZIP file not found."
             exit 1
           fi
           rm -rf extracted
@@ -58,10 +58,10 @@ jobs:
         run: |
           mkdir -p final-apk
           APK_FILE=$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -name '*.apk' | head -n 1)
-          cp "$APK_FILE" final-apk/Rajahuli99-WebView.apk
+          cp "$APK_FILE" final-apk/Rajahuli99-Smooth-WebView.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rajahuli99-WEBVIEW-APK
-          path: final-apk/Rajahuli99-WebView.apk
+          name: Rajahuli99-SMOOTH-WEBVIEW-APK
+          path: final-apk/Rajahuli99-Smooth-WebView.apk
