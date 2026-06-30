@@ -1,9 +1,9 @@
-name: Build Rajahuli99 White Splash APK
+name: Build Rajahuli99 Signed Release APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ "main", "master" ]
 
 jobs:
   build:
@@ -22,82 +22,47 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android packages
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-
-      - name: Find correct Rajahuli99 project ZIP
-        run: |
-          echo "Searching correct Android project ZIP..."
-
-          PROJECT_ZIP=""
-
-          for ZIP in $(find . -maxdepth 4 -type f -iname "*.zip"); do
-            echo "Checking ZIP: $ZIP"
-
-            if echo "$ZIP" | grep -i "WORKFLOW"; then
-              echo "Skipping workflow zip: $ZIP"
-              continue
-            fi
-
-            rm -rf test_extract
-            mkdir -p test_extract
-            unzip -q "$ZIP" -d test_extract || true
-
-            FOUND_DIR=$(find test_extract -type f -name "settings.gradle" -printf '%h\n' | head -n 1)
-
-            if [ -n "$FOUND_DIR" ]; then
-              PROJECT_ZIP="$ZIP"
-              echo "Correct project ZIP found: $PROJECT_ZIP"
-              break
-            fi
-          done
-
-          if [ -z "$PROJECT_ZIP" ]; then
-            echo "ERROR: Correct Rajahuli99 Android project ZIP not found."
-            echo "Upload this ZIP in repo root: Rajahuli99_WHITE_SPLASH_ICON_GITHUB_UPLOAD.zip"
-            exit 1
-          fi
-
-          rm -rf extracted
-          mkdir -p extracted
-          unzip -q "$PROJECT_ZIP" -d extracted
-
-          PROJECT_DIR=$(find extracted -type f -name "settings.gradle" -printf '%h\n' | head -n 1)
-
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: settings.gradle not found inside project ZIP."
-            exit 1
-          fi
-
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project directory: $PROJECT_DIR"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.10.2
 
-      - name: Build APK
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build Release APK
+        run: gradle :app:assembleRelease --no-daemon
+
+      - name: Sign Release APK
         run: |
-          cd "$PROJECT_DIR"
-          gradle assembleDebug --no-daemon
+          mkdir -p output
 
-      - name: Prepare APK
-        run: |
-          mkdir -p final-apk
-          APK_FILE=$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -name "*.apk" | head -n 1)
+          keytool -genkeypair \
+            -v \
+            -keystore rajahuli99-release.jks \
+            -storepass rajahuli99123 \
+            -keypass rajahuli99123 \
+            -alias rajahuli99 \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Rajahuli99, OU=Rajahuli99, O=Rajahuli99, L=Bangalore, ST=Karnataka, C=IN"
 
-          if [ -z "$APK_FILE" ]; then
-            echo "ERROR: APK not found after build."
-            exit 1
-          fi
+          $ANDROID_HOME/build-tools/35.0.0/zipalign -p -f 4 \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            output/Rajahuli99-aligned.apk
 
-          cp "$APK_FILE" final-apk/Rajahuli99-White-Splash.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner sign \
+            --ks rajahuli99-release.jks \
+            --ks-pass pass:rajahuli99123 \
+            --key-pass pass:rajahuli99123 \
+            --out output/Rajahuli99.apk \
+            output/Rajahuli99-aligned.apk
 
-      - name: Upload APK
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose output/Rajahuli99.apk
+
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rajahuli99-WHITE-SPLASH-APK
-          path: final-apk/Rajahuli99-White-Splash.apk
+          name: Rajahuli99-SIGNED-RELEASE-APK
+         
