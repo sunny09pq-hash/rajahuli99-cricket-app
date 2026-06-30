@@ -1,0 +1,64 @@
+name: Build Rajahuli99 Scoring App APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "master"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract app ZIP
+        run: |
+          rm -rf extracted_app
+          mkdir extracted_app
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "App ZIP not found"
+            exit 1
+          fi
+          unzip -o "$ZIP_FILE" -d extracted_app
+
+      - name: Find Flutter project
+        run: |
+          APP_DIR=$(find extracted_app -type f -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
+          if [ -z "$APP_DIR" ]; then
+            echo "pubspec.yaml not found"
+            exit 1
+          fi
+          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
+          echo "Flutter project found at $APP_DIR"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Create Android files
+        run: cd "$APP_DIR" && flutter create --platforms=android .
+
+      - name: Get packages
+        run: cd "$APP_DIR" && flutter pub get
+
+      - name: Build Scoring APK
+        run: cd "$APP_DIR" && flutter build apk --debug
+
+      - name: Copy APK
+        run: cp "$APP_DIR/build/app/outputs/flutter-apk/app-debug.apk" Rajahuli99-Scoring-App.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rajahuli99-Scoring-App-APK
+          path: Rajahuli99-Scoring-App.apk
