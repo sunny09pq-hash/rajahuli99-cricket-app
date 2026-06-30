@@ -13,22 +13,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract app ZIP
+      - name: Extract app ZIP if uploaded as ZIP
         run: |
           rm -rf extracted_app
           mkdir extracted_app
           ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "App ZIP not found"
-            exit 1
+          if [ -n "$ZIP_FILE" ]; then
+            echo "Extracting $ZIP_FILE"
+            unzip -o "$ZIP_FILE" -d extracted_app
+          else
+            echo "No ZIP file found. Using repository files."
           fi
-          unzip -o "$ZIP_FILE" -d extracted_app
 
       - name: Find Flutter project
         run: |
-          APP_DIR=$(find extracted_app -type f -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
-          if [ -z "$APP_DIR" ]; then
-            echo "pubspec.yaml not found"
+          if [ -f "pubspec.yaml" ]; then
+            APP_DIR="."
+          else
+            APP_DIR=$(find extracted_app . -type f -name "pubspec.yaml" -not -path "*/build/*" -exec dirname {} \; | head -n 1)
+          fi
+          if [ -z "$APP_DIR" ] || [ ! -f "$APP_DIR/pubspec.yaml" ]; then
+            echo "pubspec.yaml not found. Upload the app ZIP or extracted Flutter files."
+            find . -maxdepth 3 -type f
             exit 1
           fi
           echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
@@ -44,9 +50,20 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: Create Android files
         run: cd "$APP_DIR" && flutter create --platforms=android .
+
+      - name: Apply Rajahuli99 launcher icons and label
+        run: |
+          cd "$APP_DIR"
+          cp assets/icons/mipmap-mdpi/ic_launcher.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png || true
+          cp assets/icons/mipmap-hdpi/ic_launcher.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png || true
+          cp assets/icons/mipmap-xhdpi/ic_launcher.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png || true
+          cp assets/icons/mipmap-xxhdpi/ic_launcher.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png || true
+          cp assets/icons/mipmap-xxxhdpi/ic_launcher.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png || true
+          sed -i 's/android:label="[^"]*"/android:label="Rajahuli99"/' android/app/src/main/AndroidManifest.xml
 
       - name: Get packages
         run: cd "$APP_DIR" && flutter pub get
@@ -55,10 +72,11 @@ jobs:
         run: cd "$APP_DIR" && flutter build apk --debug
 
       - name: Copy APK
-        run: cp "$APP_DIR/build/app/outputs/flutter-apk/app-debug.apk" Rajahuli99-Scoring-App.apk
+        run: cp "$APP_DIR/build/app/outputs/flutter-apk/app-debug.apk" Rajahuli99-Scoring-App-V2-Fixed.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rajahuli99-Scoring-App-APK
-          path: Rajahuli99-Scoring-App.apk
+          name: Rajahuli99-Scoring-App-V2-Fixed-APK
+          path: Rajahuli99-Scoring-App
+          -V2-Fixed.apk
